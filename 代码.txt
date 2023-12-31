@@ -1,0 +1,98 @@
+#include <Stepper.h>
+
+int TRIG = 12;
+int ECHO = 11;
+int DURATION;
+int DISTANCE;
+unsigned long stageBStartTime = 0; 
+const int stepsPerRevolution = 2038;
+Stepper myStepper1(2038, 6, 8, 7, 9);
+Stepper myStepper2(2038, 2, 4, 3, 5);
+enum Stage {
+  STAGE_A,
+  STAGE_B,
+  STAGE_C
+};
+Stage currentStage = STAGE_A;
+
+void setup() {
+  // ULTRASONICSENSOR
+  pinMode(TRIG, OUTPUT);
+  pinMode(ECHO, INPUT);
+  Serial.begin(9600); // 初始化串口通信
+}
+
+void initializeAlwaysRunningCode() {
+  digitalWrite(TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG, LOW);
+  DURATION = pulseIn(ECHO, HIGH);
+  DISTANCE = DURATION * 0.0343 / 2;  // 修改这一行
+}
+
+void loop() {
+  initializeAlwaysRunningCode(); // 调用初始化函数
+
+  switch (currentStage) {
+    case STAGE_A:
+      if (DISTANCE > 100 && DISTANCE < 200) {
+        // 保持在 Stage A
+        Serial.println("Staying in Stage A");
+      } else if (DISTANCE > 0 && DISTANCE < 100) {
+        // 进入 Stage B
+        Serial.println("Entering Stage B");
+        currentStage = STAGE_B;
+        stageBStartTime = millis();  // 记录进入 STAGE_B 的时间
+      }
+      delay(1000); // 模拟阶段 A 的操作，可以根据需要调整
+      break;
+
+    case STAGE_B:
+      // 在这里执行 Stage B 的操作
+      // 顺时针旋转90度
+      myStepper1.setSpeed(5);  // 设置步进电机速度
+      myStepper1.step(stepsPerRevolution / 4); 
+      myStepper2.setSpeed(5);  // 设置步进电机速度
+      myStepper2.step(stepsPerRevolution / 4); 
+
+      unsigned long currentTime;
+      unsigned long elapsedTime;
+
+      Serial.println("In Stage B, continuously printing IR sensor data:");
+
+      while (currentStage == STAGE_B) {
+        initializeAlwaysRunningCode();
+        Serial.println(DISTANCE);
+        delay(100);
+
+        currentTime = millis();
+        elapsedTime = currentTime - stageBStartTime;
+
+        // 检测是否满足切换条件
+        if (DISTANCE > 100 && elapsedTime >= 5000) {
+          Serial.println("Entering Stage C");
+          currentStage = STAGE_C;
+          break;  // 如果满足条件，跳出循环
+        }
+      }
+      break;
+
+    case STAGE_C:
+      // 在这里执行 Stage C 的操作
+      Serial.println("Performing Stage C");
+
+myStepper1.setSpeed(5);  // 设置步进电机速度
+      myStepper1.step(-stepsPerRevolution / 4); 
+      myStepper2.setSpeed(5);  // 设置步进电机速度
+      myStepper2.step(-stepsPerRevolution / 4); 
+
+Serial.println("Returning to Stage A");
+      currentStage = STAGE_A;
+      break;
+
+
+
+      // ...
+      
+  }
+}//要调整
